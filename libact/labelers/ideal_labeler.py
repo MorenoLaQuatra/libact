@@ -31,3 +31,6 @@ class IdealLabeler(Labeler):
     def label(self, feature):
         return self.y[np.where([np.array_equal(x, feature)
                                 for x in self.X])[0][0]]
+    
+    def label_from_id(self, identifier):
+        return self.y[identifier]
