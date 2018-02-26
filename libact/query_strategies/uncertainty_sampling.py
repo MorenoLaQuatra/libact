@@ -119,6 +119,8 @@ class UncertaintySampling(QueryStrategy):
             dvalue = self.model.predict_proba(X_pool)
         elif isinstance(self.model, ContinuousModel):
             dvalue = self.model.predict_real(X_pool)
+        
+        dvalue = np.asarray(dvalue)
 
         if self.method == 'lc':  # least confident
             score = -np.max(dvalue, axis=1)
@@ -139,3 +141,54 @@ class UncertaintySampling(QueryStrategy):
                    list(zip(unlabeled_entry_ids, score))
         else:
             return unlabeled_entry_ids[ask_id]
+
+def make_n_query(self, n=5, return_score=False):
+        """Return the index of the sample to be queried and labeled and
+        selection score of each sample. Read-only.
+
+        No modification to the internal states.
+
+        Returns
+        -------
+        list_id : list of int
+            The indexes of the next unlabeled samples. The first n elements
+            in the list of uncertain samples.
+
+        score : list of (index, score) tuple
+            Selection score of unlabled entries, the larger the better.
+
+        """
+        dataset = self.dataset
+        #self.model.train(dataset)
+
+        unlabeled_entry_ids, X_pool = zip(*dataset.get_unlabeled_entries())
+
+        if isinstance(self.model, ProbabilisticModel):
+            dvalue = self.model.predict_proba(X_pool)
+        elif isinstance(self.model, ContinuousModel):
+            dvalue = self.model.predict_real(X_pool)
+
+        dvalue = np.asarray(dvalue)
+
+        if self.method == 'lc':  # least confident
+            score = -np.max(dvalue, axis=1)
+
+        elif self.method == 'sm':  # smallest margin
+            if np.shape(dvalue)[1] > 2:
+                # Find 2 largest decision values
+                dvalue = -(np.partition(-dvalue, 2, axis=1)[:, :2])
+            score = -np.abs(dvalue[:, 0] - dvalue[:, 1])
+
+        elif self.method == 'entropy':
+            score = np.sum(-dvalue * np.log(dvalue), axis=1)
+
+        list_id = score.argsort()[-n:][::-1]
+
+        for i in range(0, len(list_id)):
+            list_id[i] = unlabeled_entry_ids[list_id[i]]
+
+        if return_score:
+            return list_id, \
+                   list(zip(list_id, score))
+        else:
+            return list_id
